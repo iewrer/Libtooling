@@ -1,4 +1,4 @@
-#include "clang/Driver/Options.h"
+ #include "clang/Driver/Options.h"
 #include "clang/AST/AST.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTConsumer.h"
@@ -18,7 +18,7 @@ using namespace llvm;
 
 Rewriter rewriter;
 int numFunctions = 0;
-
+static cl::OptionCategory ClangExCategory("examplians");
 
 class ExampleVisitor : public RecursiveASTVisitor<ExampleVisitor> {
 private:
@@ -81,7 +81,7 @@ public:
     { }
 
     // override this to call our ExampleVisitor on the entire source file
-    virtual void HandleTranslationUnit(ASTContext &Context) {
+    virtual void HandleTranslationUnit(DASTContext &Context) {
         /* we can use ASTContext to get the TranslationUnitDecl, which is
              a single Decl that collectively represents the entire source file */
         visitor->TraverseDecl(Context.getTranslationUnitDecl());
@@ -113,7 +113,7 @@ public:
 
 int main(int argc, const char **argv) {
     // parse the command-line args passed to your code
-    CommonOptionsParser op(argc, argv);        
+    CommonOptionsParser op(argc, argv,ClangExCategory);
     // create a new Clang Tool instance (a LibTooling environment)
     ClangTool Tool(op.getCompilations(), op.getSourcePathList());
 

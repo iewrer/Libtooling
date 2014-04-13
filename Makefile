@@ -2,7 +2,7 @@ CLANG_LEVEL := ../..
 
 TOOLNAME = example  #the name of your tool's executable
 
-SOURCES := Example.cpp  #the Clang source files you want to compile
+SOURCES := main.cpp CallGraph.cpp  #the Clang source files you want to compile
 
 include $(CLANG_LEVEL)/../../Makefile.config
 
