@@ -208,12 +208,16 @@ int main(int argc, const char * argv[])
             Importer.Import(D);
         }
     }
+    errs() << "------decls before call graph set up--------\n";
+    all->getASTContext().getTranslationUnitDecl()->dumpColor();
     cg.addToCallGraph(all->getASTContext().getTranslationUnitDecl());
     cg.dump();
+    errs() << "------decls after call graph set up--------\n";
+    all->getASTContext().getTranslationUnitDecl()->dumpColor();
     MyVisitor *visitor = new MyVisitor();
     visitor->TraverseDecl(all->getASTContext().getTranslationUnitDecl());
-        errs() << "------Traverse Of Classes finished--------\n";
-    
+    errs() << "------Traverse Of Classes finished--------\n";
+
     vector<Decl*> allFunctions;
     insert_iterator<vector<Decl*>> in(allFunctions,allFunctions.begin());
     
