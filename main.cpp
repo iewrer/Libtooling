@@ -64,25 +64,27 @@ void traverse(CallGraphNode* root,int count) {
 
 
 //遍历CallGraph
-void traverseFunction(CallGraphNode* root) {
+void traverseFunction(CallGraphNode* root,int count) {
     if (!root) {
         return;
     }
+    int temp = count;
     for (CallGraphNode::iterator it = root->begin(); it != root->end(); ++it) {
         
     	FunctionDecl* rootDecl = dyn_cast_or_null<FunctionDecl>(root->getDecl());
     	FunctionDecl* tmp = dyn_cast_or_null<FunctionDecl>((*it)->getDecl());
-        if (rootDecl) {
-            errs() << "root: " << rootDecl->getNameAsString() << " ";
-        }
-        if (tmp) {
-            errs() << "tmp: " << tmp->getNameAsString() << "\n";
-        }
-        if(rootDecl && tmp && rootDecl->getNameAsString()=="remove" &&rootDecl->getNameAsString() == tmp->getNameAsString())
-    		errs() << "root: " << rootDecl->getNameAsString() << " ";
     	if(rootDecl && tmp && rootDecl->getNameAsString() == tmp->getNameAsString())
     		continue;
-        
+//        while (temp != 0) {
+//            errs() << "  ";
+//            temp--;
+//        }
+//        if (rootDecl) {
+//            errs() << count << "root: " << rootDecl->getNameAsString() << " ";
+//        }
+//        if (tmp) {
+//            errs() << "tmp: " << tmp->getNameAsString() << "\n";
+//        }
     	else {
             //如果该函数声明是一个定义
             //则找到它对应的包名称
@@ -106,13 +108,14 @@ void traverseFunction(CallGraphNode* root) {
                 if (filename.find("math.h") != filename.npos)
                 	package = "language";
                 
-                //errs() << tmp->getNameAsString() << " ";
-                //errs() << package << "\n";
+                errs() << tmp->getNameAsString() << " ";
+                errs() << package << "\n";
                 funcPackageMap.insert(make_pair((*it)->getDecl(), package));
             }
             
         }
-        traverseFunction((*it));
+        temp = count;
+        traverseFunction((*it),count+1);
     }
 }
 bool end_with(const std::string& str, const std::string& sub)
@@ -158,13 +161,14 @@ int main(int argc, const char * argv[])
         cg.addToCallGraph((*it)->getASTContext().getTranslationUnitDecl());
     }
 
-    cg.MergeFunctionMap();
+    cg.MergeFunctionMap(); 
 
-    //    cg.dump();
-    
-    //traverse(cg.getRoot(), 0);
+//    cg.dump();
+//    errs() << "------------traverse start----------\n";
+//    traverse(cg.getRoot(), 0);
+//    errs() << "------------traverse end----------\n";
     errs() << "------------traverseFunction start----------\n";
-    traverseFunction(cg.getRoot());
+    traverseFunction(cg.getRoot(),0);
     errs() << "------------traverseFunction end----------\n";
     
     

@@ -113,60 +113,59 @@ CallGraph::~CallGraph() {
   llvm::DeleteContainerSeconds(FunctionMap);
 }
 void CallGraph::mergeCallGraphNode(CallGraphNode* n1,CallGraphNode* n2) {
-    FunctionDecl* callee = dyn_cast_or_null<FunctionDecl>(n1->getDecl());
-    FunctionDecl* callee2 = dyn_cast_or_null<FunctionDecl>(n2->getDecl());
-    if (!callee||!callee2) {
-        return;
-    }
-    if (callee->getNameAsString()=="cyg_package_start") {
-        llvm::errs() << callee2->getNameAsString();
-        llvm::errs() << "hehe";
-    }
     if (n1->empty()) {
         for (CallGraphNode::iterator it = n2->begin(); it != n2->end(); ++it) {
-            n1->addCallee((*it), new CallGraph());
+            n1->addCallee((*it), this);
         }
     }
     else if(n2->empty()) {
         for (CallGraphNode::iterator it = n1->begin(); it != n1->end(); ++it) {
-            n2->addCallee((*it), new CallGraph());
+            n2->addCallee((*it), this);
         }
     }
+    //如果n1有父节点而n2没有，添加n2为n1父节点的子节点，将n1父节点设置为n2的父节点
+    //实际上addCallee这个函数就会设置双向的关系
+    //同时将父节点到子节点和子节点到父节点之间的关系给加上了
+    //所以不需要再作多余的设置
     if (n1->getParent().empty()&&!n2->getParent().empty()) {
-        n1->setParent(n2->getParent());
         std::vector<CallGraphNode*> *tmp = &n2->getParent();
         for (std::vector<CallGraphNode*>::iterator it = tmp->begin(); it != tmp->end(); ++it) {
-            CallGraphNode *parent = *it;
-            parent->addCallee(n1, new CallGraph());
+            if (std::find((*it)->begin(), (*it)->end(), n1)==(*it)->end()) {
+                (*it)->addCallee(n1, this);
+            }
         }
+//        n1->setParent(n2->getParent());
     }
-    if (n2->getParent().empty()&&!n1->getParent().empty()) {
-        n2->setParent(n1->getParent());
+    else if (n2->getParent().empty()&&!n1->getParent().empty()) {
         std::vector<CallGraphNode*> *tmp = &n1->getParent();
         for (std::vector<CallGraphNode*>::iterator it = tmp->begin(); it != tmp->end(); ++it) {
-            CallGraphNode *parent = *it;
-            parent->addCallee(n2, new CallGraph());
+            if (std::find((*it)->begin(), (*it)->end(), n2)==(*it)->end()) {
+                (*it)->addCallee(n2, this);
+            }
         }
+//        n2->setParent(n1->getParent());
     }
-    if (!n1->getParent().empty()&&!n2->getParent().empty()) {
+    else if (!n1->getParent().empty()&&!n2->getParent().empty()) {
         std::vector<CallGraphNode*> *p1 = &n1->getParent();
         std::vector<CallGraphNode*> *p2 = &n2->getParent();
         //遍历n2的parent节点，分别将n1作为其子节点
         for (std::vector<CallGraphNode*>::iterator it = p2->begin(); it != p2->end(); ++it) {
-            CallGraphNode *parent = *it;
-            parent->addCallee(n1, new CallGraph());
+            if (std::find((*it)->begin(), (*it)->end(), n1)==(*it)->end()) {
+                (*it)->addCallee(n1, this);
+            }
         }
         //遍历n1的parent节点，分别将n2作为其子节点
         for (std::vector<CallGraphNode*>::iterator it = p1->begin(); it != p1->end(); ++it) {
-            CallGraphNode *parent = *it;
-            parent->addCallee(n2, new CallGraph());
+            if (std::find((*it)->begin(), (*it)->end(), n2)==(*it)->end()) {
+                (*it)->addCallee(n2, this);
+            }
         }
         //遍历n2的parent节点，添加到n1的parent列表中
-        for (std::vector<CallGraphNode*>::iterator it = p2->begin(); it != p2->end(); ++it) {
-            p1->push_back(*it);
-        }
+//        for (std::vector<CallGraphNode*>::iterator it = p2->begin(); it != p2->end(); ++it) {
+//            p1->push_back(*it);
+//        }
         //将这个parent并集也设置为n2的parent列表
-        n2->setParent(*p1);
+//        n2->setParent(*p1);
     }
 }
 void CallGraph::MergeFunctionMap() {
@@ -176,40 +175,29 @@ void CallGraph::MergeFunctionMap() {
         if(const NamedDecl *ND = dyn_cast_or_null<NamedDecl>(it->first)) {
             name = ND->getNameAsString();
             llvm::errs() << name << "\n";
-            if (name=="cyg_package_start") {
-                if (const FunctionDecl *x = dyn_cast_or_null<FunctionDecl>(it->first)) {
-                    if (x->isThisDeclarationADefinition()) {
-                        llvm::errs() << name2;
-                        llvm::errs() << "hehe";
-                    }
+            for (FunctionMapTy::iterator it2 = it; it2 != FunctionMap.end(); ++it2) {
+                if(it2==it) {
+                    continue;
                 }
-            }
-        }
-        for (FunctionMapTy::iterator it2 = FunctionMap.begin(); it2 != FunctionMap.end(); ++it2) {
-            if(it2==it) {
-                continue;
-            }
-            if(const NamedDecl *ND = dyn_cast_or_null<NamedDecl>(it2->first)) {
-                 name2 = ND->getNameAsString();
-            }
-            //如果两个函数都是类的成员函数，那么当函数名相同，且两个函数都是同一个类的成员时合并之
-            //否则若函数名相同即可合并之
-            if(name==name2) {
-                if (name=="cyg_package_start") {
-                    llvm::errs() << name2;
-                    llvm::errs() << "hehe";
-                }
-                if (const CXXMethodDecl *n1 = dyn_cast_or_null<CXXMethodDecl>(it->first)) {
-                    if(const CXXMethodDecl *n2 = dyn_cast_or_null<CXXMethodDecl>(it2->first)) {
-                        std::string c1 = n1->getParent()->getNameAsString();
-                        std::string c2 = n2->getParent()->getNameAsString();
-                        if (c1 == c2) {
-                            mergeCallGraphNode(it->second,it2->second);
+                if(const NamedDecl *ND = dyn_cast_or_null<NamedDecl>(it2->first)) {
+                     name2 = ND->getNameAsString();
+                    //如果两个函数都是类的成员函数，那么当函数名相同，且两个函数都是同一个类的成员时合并之
+                    //否则若函数名相同即可合并之
+                    if(name==name2) {
+                        if (const CXXMethodDecl *n1 = dyn_cast_or_null<CXXMethodDecl>(it->first)) {
+                            if(const CXXMethodDecl *n2 = dyn_cast_or_null<CXXMethodDecl>(it2->first)) {
+                                std::string c1 = n1->getParent()->getNameAsString();
+                                std::string c2 = n2->getParent()->getNameAsString();
+                                if (c1 == c2) {
+                                    mergeCallGraphNode(it->second,it2->second);
+                                }
+                                else {
+                                    continue;
+                                }
+                            }
                         }
+                        mergeCallGraphNode(it->second,it2->second);
                     }
-                }
-                else {
-                    mergeCallGraphNode(it->second,it2->second);
                 }
             }
         }

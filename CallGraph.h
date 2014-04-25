@@ -161,13 +161,15 @@ public:
 
   void addCallee(CallGraphNode *N, CallGraph *CG) {
     CalledFunctions.push_back(N);
-      N->parentFunctions.push_back(this);
+      if (std::find(N->parentFunctions.begin(), N->parentFunctions.end(), this)==N->parentFunctions.end()) {
+          N->parentFunctions.push_back(this);
+      }
   }
 
   Decl *getDecl() const { return FD; }
     void setDecl(Decl *D) {FD = D;}
     std::vector<CallRecord>& getParent() {return parentFunctions;}
-    void setParent(std::vector<CallRecord>& D) {parentFunctions = D ;}
+    void setParent(std::vector<CallRecord>& D) {parentFunctions.assign(D.begin(), D.end());}
   void print(raw_ostream &os) const;
   void dump() const;
 };
