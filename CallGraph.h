@@ -46,7 +46,7 @@ public:
   CallGraph();
   ~CallGraph();
     void MergeFunctionMap();
-
+    void mergeCallGraphNode(CallGraphNode* n1,CallGraphNode* n2);
   /// \brief Populate the call graph with the functions in the given
   /// declaration.
   ///
@@ -139,8 +139,10 @@ private:
   /// \brief The function/method declaration.
   Decl *FD;
 
+
   /// \brief The list of functions called from this node.
   SmallVector<CallRecord, 5> CalledFunctions;
+    std::vector<CallRecord> parentFunctions;
 
 public:
   CallGraphNode(Decl *D) : FD(D) {}
@@ -159,10 +161,13 @@ public:
 
   void addCallee(CallGraphNode *N, CallGraph *CG) {
     CalledFunctions.push_back(N);
+      N->parentFunctions.push_back(this);
   }
 
   Decl *getDecl() const { return FD; }
-
+    void setDecl(Decl *D) {FD = D;}
+    std::vector<CallRecord>& getParent() {return parentFunctions;}
+    void setParent(std::vector<CallRecord>& D) {parentFunctions = D ;}
   void print(raw_ostream &os) const;
   void dump() const;
 };

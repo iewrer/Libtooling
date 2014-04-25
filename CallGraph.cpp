@@ -112,48 +112,64 @@ CallGraph::CallGraph() {
 CallGraph::~CallGraph() {
   llvm::DeleteContainerSeconds(FunctionMap);
 }
-//void mergeCallGraphNode(CallGraphNode* n1,CallGraphNode* n2) {
-//    if (n1->empty()) {
-//        for (CallGraphNode::iterator it = n2->begin(); it != n2->end(); ++it) {
-//            n1->addCallee((*it), new CallGraph());
-//        }
-//    }
-//    else if(n2->empty()) {
-//        for (CallGraphNode::iterator it = n1->begin(); it != n1->end(); ++it) {
-//            n2->addCallee((*it), new CallGraph());
-//        }
-//    }
-//}
-//void CallGraph::MergeFunctionMap() {
-//    std::string name,name2;
-//    for (FunctionMapTy::iterator it = FunctionMap.begin(); it != FunctionMap.end(); ++it) {
-//        if(const NamedDecl *ND = dyn_cast_or_null<NamedDecl>(it->first)) {
-//            name = ND->getNameAsString();
-//        }
-//        for (FunctionMapTy::iterator it2 = it; it2 != FunctionMap.end(); ++it2) {
-//            if(it2==it) {
-//                continue;
-//            }
-//            if(const NamedDecl *ND = dyn_cast_or_null<NamedDecl>(it2->first)) {
-//                 name = ND->getNameAsString();
-//            }
-//            //如果两个函数都是类的成员函数，那么当函数名相同，且两个函数都是同一个类的成员时合并之
-//            //否则若函数名相同即可合并之
-//            if(name==name2) {
-//                if (const CXXMethodDecl *n1 = dyn_cast_or_null<CXXMethodDecl>(it->first)) {
-//                    if(const CXXMethodDecl *n2 = dyn_cast_or_null<CXXMethodDecl>(it2->first)) {
-//                        std::string c1 = n1->getParent()->getNameAsString();
-//                        std::string c2 = n2->getParent()->getNameAsString();
-//                        if (c1 == c2) {
-//                            mergeCallGraphNode(it->second,it2->second);
-//                        }
-//                    }
-//                }
-//                mergeCallGraphNode(it->second,it2->second);
-//            }
-//        }
-//    }
-//}
+void CallGraph::mergeCallGraphNode(CallGraphNode* n1,CallGraphNode* n2) {
+    if (n1->empty()) {
+        for (CallGraphNode::iterator it = n2->begin(); it != n2->end(); ++it) {
+            n1->addCallee((*it), new CallGraph());
+        }
+    }
+    else if(n2->empty()) {
+        for (CallGraphNode::iterator it = n1->begin(); it != n1->end(); ++it) {
+            n2->addCallee((*it), new CallGraph());
+        }
+    }
+    if (n1->getParent().empty()&&!n2->getParent().empty()) {
+        n1->setParent(n2->getParent());
+        std::vector<CallGraphNode*> *tmp = &n2->getParent();
+        for (std::vector<CallGraphNode*>::iterator it = tmp->begin(); it != tmp->end(); ++it) {
+            CallGraphNode *parent = *it;
+            parent->addCallee(n1, new CallGraph());
+        }
+    }
+    if (n2->getParent().empty()&&!n1->getParent().empty()) {
+        n2->setParent(n1->getParent());
+        std::vector<CallGraphNode*> *tmp = &n1->getParent();
+        for (std::vector<CallGraphNode*>::iterator it = tmp->begin(); it != tmp->end(); ++it) {
+            CallGraphNode *parent = *it;
+            parent->addCallee(n2, new CallGraph());
+        }
+    }
+}
+void CallGraph::MergeFunctionMap() {
+    std::string name,name2;
+    for (FunctionMapTy::iterator it = FunctionMap.begin(); it != FunctionMap.end(); ++it) {
+        if(const NamedDecl *ND = dyn_cast_or_null<NamedDecl>(it->first)) {
+            name = ND->getNameAsString();
+        }
+        for (FunctionMapTy::iterator it2 = it; it2 != FunctionMap.end(); ++it2) {
+            if(it2==it) {
+                continue;
+            }
+            if(const NamedDecl *ND = dyn_cast_or_null<NamedDecl>(it2->first)) {
+                 name = ND->getNameAsString();
+            }
+            //如果两个函数都是类的成员函数，那么当函数名相同，且两个函数都是同一个类的成员时合并之
+            //否则若函数名相同即可合并之
+            if(name==name2) {
+                if (const CXXMethodDecl *n1 = dyn_cast_or_null<CXXMethodDecl>(it->first)) {
+                    if(const CXXMethodDecl *n2 = dyn_cast_or_null<CXXMethodDecl>(it2->first)) {
+                        std::string c1 = n1->getParent()->getNameAsString();
+                        std::string c2 = n2->getParent()->getNameAsString();
+                        if (c1 == c2) {
+                            mergeCallGraphNode(it->second,it2->second);
+                        }
+                    }
+                }
+                mergeCallGraphNode(it->second,it2->second);
+            }
+        }
+    }
+}
 bool CallGraph::includeInGraph(const Decl *D) {
   assert(D);
     if (getNode(D)) {
