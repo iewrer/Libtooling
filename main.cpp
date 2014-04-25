@@ -36,9 +36,8 @@ void findMargin(CallGraphNode * root);
 void findCallee(CallGraphNode *root, vector<FunctionDecl*> & callees);
 void findRootCaller(vector<FunctionDecl*> & callees);
 void printMargin();
-void printMarginDot();
 void printRootCaller();
-
+void printMarginDot();
 
 void traverse(CallGraphNode* root,int count) {
     if (!root) {
@@ -73,7 +72,14 @@ void traverseFunction(CallGraphNode* root) {
         
     	FunctionDecl* rootDecl = dyn_cast_or_null<FunctionDecl>(root->getDecl());
     	FunctionDecl* tmp = dyn_cast_or_null<FunctionDecl>((*it)->getDecl());
-        
+        if (rootDecl) {
+            errs() << "root: " << rootDecl->getNameAsString() << " ";
+        }
+        if (tmp) {
+            errs() << "tmp: " << tmp->getNameAsString() << "\n";
+        }
+        if(rootDecl && tmp && rootDecl->getNameAsString()=="remove" &&rootDecl->getNameAsString() == tmp->getNameAsString())
+    		errs() << "root: " << rootDecl->getNameAsString() << " ";
     	if(rootDecl && tmp && rootDecl->getNameAsString() == tmp->getNameAsString())
     		continue;
         
@@ -81,14 +87,8 @@ void traverseFunction(CallGraphNode* root) {
             //如果该函数声明是一个定义
             //则找到它对应的包名称
             //将其加入map:funcPackageMap中
-            if (!tmp->isThisDeclarationADefinition()){
-                for (FunctionDecl::redecl_iterator it2 = tmp->redecls_begin(); it2 != tmp->redecls_end(); ++it2) {
-                    if ((*it2)->isThisDeclarationADefinition()) {
-                        (*it)->setDecl(*it2);
-                        break;
-                    }
-                }
-            }
+            if (tmp->isThisDeclarationADefinition()){
+                
                 string package = "empty";
                 string filename = (*it)->getDecl()->getASTContext().getSourceManager().getPresumedLoc((*it)->getDecl()->getSourceRange().getBegin()).getFilename();
                 for (int i = 0; i < PACKAGE_NUM; i++) {
@@ -109,8 +109,8 @@ void traverseFunction(CallGraphNode* root) {
                 //errs() << tmp->getNameAsString() << " ";
                 //errs() << package << "\n";
                 funcPackageMap.insert(make_pair((*it)->getDecl(), package));
-
-
+            }
+            
         }
         traverseFunction((*it));
     }
@@ -157,38 +157,45 @@ int main(int argc, const char * argv[])
     for (vector<ASTUnit*>::iterator it = Units.begin(); it != Units.end(); ++it) {
         cg.addToCallGraph((*it)->getASTContext().getTranslationUnitDecl());
     }
-    cg.MergeFunctionMap();
-//    cg.dump();
-    
-     //traverse(cg.getRoot(), 0);
-     traverseFunction(cg.getRoot());
-     
-     
-     //    map<FunctionDecl*, FunctionDecl*> *callRelation[PACKAGE_NUM][PACKAGE_NUM];
-     //    vector<FunctionDecl*> * rootFunctions[PACKAGE_NUM];
-     for(int i = 0; i < PACKAGE_NUM; i ++){
-		 for(int j = 0; j < PACKAGE_NUM; j ++){
-			 callRelation[i][j] = new map<FunctionDecl*, FunctionDecl*>();
-		 }
-     }
-     
-     for(int i = 0; i < PACKAGE_NUM; i ++){
-    	 rootFunctions[i] = new vector<FunctionDecl*>();
-     }
-     
-     //find the margins between each package pair
-     findMargin(cg.getRoot());
-     printMargin();
-     printMarginDot();
-    
-     //first find all the callee functions
-     vector<FunctionDecl*> callees;
-     findCallee(cg.getRoot(), callees);
-     
-     //then find root callers from all function set
-     findRootCaller(callees);
-     printRootCaller();
 
+    cg.MergeFunctionMap();
+
+    //    cg.dump();
+    
+    //traverse(cg.getRoot(), 0);
+    errs() << "------------traverseFunction start----------\n";
+    traverseFunction(cg.getRoot());
+    errs() << "------------traverseFunction end----------\n";
+    
+    
+    //    map<FunctionDecl*, FunctionDecl*> *callRelation[PACKAGE_NUM][PACKAGE_NUM];
+    //    vector<FunctionDecl*> * rootFunctions[PACKAGE_NUM];
+    for(int i = 0; i < PACKAGE_NUM; i ++){
+        for(int j = 0; j < PACKAGE_NUM; j ++){
+            callRelation[i][j] = new map<FunctionDecl*, FunctionDecl*>();
+        }
+    }
+    
+    for(int i = 0; i < PACKAGE_NUM; i ++){
+        rootFunctions[i] = new vector<FunctionDecl*>();
+    }
+    
+    //find the margins between each package pair
+    errs() << "------------findMargin start----------\n";
+    findMargin(cg.getRoot());
+    errs() << "------------findMargin end----------\n";
+    printMargin();
+    printMarginDot();
+    
+    //first find all the callee functions
+    vector<FunctionDecl*> callees;
+    errs() << "------------findCallee start----------\n";
+    findCallee(cg.getRoot(), callees);
+    errs() << "------------findCallee end----------\n";
+    //then find root callers from all function set
+    findRootCaller(callees);
+    printRootCaller();
+    
     
     
     
@@ -196,6 +203,7 @@ int main(int argc, const char * argv[])
 }
 
 void findMargin(CallGraphNode * root){
+    
 	if(!root) return;
     
     
@@ -206,17 +214,19 @@ void findMargin(CallGraphNode * root){
         
         FunctionDecl* callee = dyn_cast_or_null<FunctionDecl> ((*it)->getDecl());
         FunctionDecl* caller = dyn_cast_or_null<FunctionDecl>(root->getDecl());
-
+        
         
         if(caller && callee){
-            if (!callee->isThisDeclarationADefinition()) {
-                for (FunctionDecl::redecl_iterator it2 = callee->redecls_begin(); it2 != callee->redecls_end(); ++it2) {
-                    if ((*it2)->isThisDeclarationADefinition()) {
-                        callee = *it2;
-                        break;
-                    }
-                }
-            }
+            /* if (!callee->isThisDeclarationADefinition()) {
+             for (FunctionDecl::redecl_iterator it2 = callee->redecls_begin(); it2 != callee->redecls_end(); ++it2) {
+             if ((*it2)->isThisDeclarationADefinition()) {
+             callee = *it2;
+             break;
+             }
+             }
+             }*/
+        	if(!callee->isThisDeclarationADefinition())
+        		continue;
             if(caller->getNameAsString ()== callee->getNameAsString())
                 continue;
             else {
@@ -261,14 +271,17 @@ void findCallee(CallGraphNode *root, vector<FunctionDecl*> & callees){
 			if(caller->getNameAsString() == callee->getNameAsString())
 				continue;
 			else{
-
-				if (!callee->isThisDeclarationADefinition()) {
-					for (FunctionDecl::redecl_iterator it2 = callee->redecls_begin(); it2 != callee->redecls_end(); ++it2) {
-						if ((*it2)->isThisDeclarationADefinition()) {
-							callee = *it2;
-							break;
-						}
-					}
+                
+				/*if (!callee->isThisDeclarationADefinition()) {
+                 for (FunctionDecl::redecl_iterator it2 = callee->redecls_begin(); it2 != callee->redecls_end(); ++it2) {
+                 if ((*it2)->isThisDeclarationADefinition()) {
+                 callee = *it2;
+                 break;
+                 }
+                 }
+                 }*/
+				if(!callee->isThisDeclarationADefinition()){
+					continue;
 				}
                 if (callee->getNameAsString()=="cyg_package_start") {
                     errs() << caller->getNameAsString();
@@ -336,6 +349,28 @@ int getTypeIndex(string type){
 	}
 	return -1;
 }
+
+
+void printMargin(){
+    std::ofstream margin("margin.txt");
+    margin << "digraph \"Margin\"\n{";
+    margin << "edge [fontname=\"Helvetica\",fontsize=\"10\",labelfontname=\"Helvetica\",labelfontsize=\"10\"];node [fontname=\"Helvetica\",fontsize=\"10\",shape=record];rankdir=\"LR\";";
+	for(int i = 0; i < PACKAGE_NUM; i ++){
+		for(int j = 0; j < PACKAGE_NUM; j ++){
+			if(i == j)
+				continue;
+			errs()<< "-------------from package " << keys[i] << " to package " << keys[j] << "-------------\n";
+			for(map<FunctionDecl*, FunctionDecl*>::iterator iter = callRelation[i][j]->begin(); iter != callRelation[i][j]->end(); iter ++){
+				FunctionDecl* caller = iter->first;
+				FunctionDecl* callee = iter->second;
+                
+				errs() << caller->getNameAsString() << " calls " << callee -> getNameAsString() << "\n";
+                margin << caller->getNameAsString() << "->" << callee -> getNameAsString() << ";\n";
+			}
+		}
+	}
+    margin << "}";
+}
 void printMarginDot(){
     std::ofstream margin("margin.dot");
     margin << "digraph \"Margin\"\n{";
@@ -377,20 +412,6 @@ void printMarginDot(){
     margin << "}";
 }
 
-void printMargin(){
-	for(int i = 0; i < PACKAGE_NUM; i ++){
-		for(int j = 0; j < PACKAGE_NUM; j ++){
-			if(i == j)
-				continue;
-			errs()<< "-------------from package " << keys[i] << " to package " << keys[j] << "-------------\n";
-			for(map<FunctionDecl*, FunctionDecl*>::iterator iter = callRelation[i][j]->begin(); iter != callRelation[i][j]->end(); iter ++){
-				FunctionDecl* caller = iter->first;
-				FunctionDecl* callee = iter->second;
-				errs() << caller->getNameAsString() << " calls " << callee -> getNameAsString() << "\n";
-			}
-		}
-	}
-}
 
 void printRootCaller(){
 	for(int i = 0; i < PACKAGE_NUM; i ++){

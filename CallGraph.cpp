@@ -113,6 +113,15 @@ CallGraph::~CallGraph() {
   llvm::DeleteContainerSeconds(FunctionMap);
 }
 void CallGraph::mergeCallGraphNode(CallGraphNode* n1,CallGraphNode* n2) {
+    FunctionDecl* callee = dyn_cast_or_null<FunctionDecl>(n1->getDecl());
+    FunctionDecl* callee2 = dyn_cast_or_null<FunctionDecl>(n2->getDecl());
+    if (!callee||!callee2) {
+        return;
+    }
+    if (callee->getNameAsString()=="cyg_package_start") {
+        llvm::errs() << callee2->getNameAsString();
+        llvm::errs() << "hehe";
+    }
     if (n1->empty()) {
         for (CallGraphNode::iterator it = n2->begin(); it != n2->end(); ++it) {
             n1->addCallee((*it), new CallGraph());
@@ -139,23 +148,57 @@ void CallGraph::mergeCallGraphNode(CallGraphNode* n1,CallGraphNode* n2) {
             parent->addCallee(n2, new CallGraph());
         }
     }
+    if (!n1->getParent().empty()&&!n2->getParent().empty()) {
+        std::vector<CallGraphNode*> *p1 = &n1->getParent();
+        std::vector<CallGraphNode*> *p2 = &n2->getParent();
+        //遍历n2的parent节点，分别将n1作为其子节点
+        for (std::vector<CallGraphNode*>::iterator it = p2->begin(); it != p2->end(); ++it) {
+            CallGraphNode *parent = *it;
+            parent->addCallee(n1, new CallGraph());
+        }
+        //遍历n1的parent节点，分别将n2作为其子节点
+        for (std::vector<CallGraphNode*>::iterator it = p1->begin(); it != p1->end(); ++it) {
+            CallGraphNode *parent = *it;
+            parent->addCallee(n2, new CallGraph());
+        }
+        //遍历n2的parent节点，添加到n1的parent列表中
+        for (std::vector<CallGraphNode*>::iterator it = p2->begin(); it != p2->end(); ++it) {
+            p1->push_back(*it);
+        }
+        //将这个parent并集也设置为n2的parent列表
+        n2->setParent(*p1);
+    }
 }
 void CallGraph::MergeFunctionMap() {
+    llvm::errs() << "----------MergeFunctionMap test---------------\n";
     std::string name,name2;
     for (FunctionMapTy::iterator it = FunctionMap.begin(); it != FunctionMap.end(); ++it) {
         if(const NamedDecl *ND = dyn_cast_or_null<NamedDecl>(it->first)) {
             name = ND->getNameAsString();
+            llvm::errs() << name << "\n";
+            if (name=="cyg_package_start") {
+                if (const FunctionDecl *x = dyn_cast_or_null<FunctionDecl>(it->first)) {
+                    if (x->isThisDeclarationADefinition()) {
+                        llvm::errs() << name2;
+                        llvm::errs() << "hehe";
+                    }
+                }
+            }
         }
-        for (FunctionMapTy::iterator it2 = it; it2 != FunctionMap.end(); ++it2) {
+        for (FunctionMapTy::iterator it2 = FunctionMap.begin(); it2 != FunctionMap.end(); ++it2) {
             if(it2==it) {
                 continue;
             }
             if(const NamedDecl *ND = dyn_cast_or_null<NamedDecl>(it2->first)) {
-                 name = ND->getNameAsString();
+                 name2 = ND->getNameAsString();
             }
             //如果两个函数都是类的成员函数，那么当函数名相同，且两个函数都是同一个类的成员时合并之
             //否则若函数名相同即可合并之
             if(name==name2) {
+                if (name=="cyg_package_start") {
+                    llvm::errs() << name2;
+                    llvm::errs() << "hehe";
+                }
                 if (const CXXMethodDecl *n1 = dyn_cast_or_null<CXXMethodDecl>(it->first)) {
                     if(const CXXMethodDecl *n2 = dyn_cast_or_null<CXXMethodDecl>(it2->first)) {
                         std::string c1 = n1->getParent()->getNameAsString();
@@ -165,10 +208,13 @@ void CallGraph::MergeFunctionMap() {
                         }
                     }
                 }
-                mergeCallGraphNode(it->second,it2->second);
+                else {
+                    mergeCallGraphNode(it->second,it2->second);
+                }
             }
         }
     }
+    llvm::errs() << "----------MergeFunctionMap test finished---------------\n";
 }
 bool CallGraph::includeInGraph(const Decl *D) {
   assert(D);
